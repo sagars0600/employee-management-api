@@ -407,14 +407,23 @@ app.put("/employees/:empId/documents/:docId", upload.single("doc_image"), async 
     const employeeId = req.params.empId;
     const documentId = req.params.docId;
     const { doc_name } = req.body;
+    const docImage = req.file ? req.file.filename : null;
 
     if (!employeeId || !documentId || !doc_name) {
       return res.status(400).json({ error: "Employee ID, document ID, and name are required." });
     }
 
+    const updateFields = {
+      doc_name: doc_name,
+    };
+
+    if (docImage) {
+      updateFields.doc_image = docImage;
+    }
+
     const updatedDocument = await EmployeeDocument.findOneAndUpdate(
       { doc_emp_id: employeeId, document_id: documentId },
-      { doc_name },
+     updateFields,
       { new: true }
     );
 
