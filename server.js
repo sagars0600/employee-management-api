@@ -3,6 +3,8 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const cors = require("cors");
+const fs = require('fs');
+const path = require('path');
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -394,6 +396,9 @@ app.delete("/employees/:employeeId/documents/:documentId", async (req, res) => {
     if (!deletedDocument) {
       return res.status(404).json({ error: "Document not found" });
     }
+
+    const filePath = path.join(__dirname, 'uploads', deletedDocument.doc_image);
+    fs.unlinkSync(filePath);
 
     res.json({ message: "Document deleted successfully" });
   } catch (error) {
