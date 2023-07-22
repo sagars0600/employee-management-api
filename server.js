@@ -3,8 +3,8 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const cors = require("cors");
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -38,7 +38,7 @@ const employeeSchema = new mongoose.Schema({
     minlength: 1,
     maxlength: 50,
   },
-  emp_dob: { type: String , required: true },
+  emp_dob: { type: String, required: true },
   emp_dept_id: { type: String },
   emp_salary: Number,
   emp_designation: { type: String, required: true },
@@ -168,6 +168,16 @@ app.post("/employees", async (req, res) => {
         .json({ error: "Invalid field length: emp_designation" });
     }
 
+    const existingEmployee = await Employee.findOne({
+      emp_first_name,
+      emp_last_name,
+      emp_dob,
+    });
+
+    if (existingEmployee) {
+      return res.status(409).json({ error: "Employee already exists" });
+    }
+
     const employeeCount = await Employee.countDocuments();
     const nextId = (employeeCount + 1).toString();
     const employee = new Employee({
@@ -227,6 +237,16 @@ app.put("/employees/:id", async (req, res) => {
       return res
         .status(400)
         .json({ error: "Invalid field length: emp_designation" });
+    }
+
+    const existingEmployee = await Employee.findOne({
+      emp_first_name,
+      emp_last_name,
+      emp_dob,
+    });
+
+    if (existingEmployee) {
+      return res.status(409).json({ error: "Employee already exists" });
     }
 
     const updatedEmployee = await Employee.findByIdAndUpdate(
@@ -297,7 +317,6 @@ app.get("/employees/:id/documents", async (req, res) => {
       doc_image: document.doc_image,
     }));
 
-   
     res.json({
       totalCount,
       responseCode: 1,
@@ -315,10 +334,15 @@ app.get("/employees/:empId/documents/:docId", async (req, res) => {
     const docId = req.params.docId;
 
     if (!empId || !docId) {
-      return res.status(400).json({ error: "Employee ID and Document ID are required." });
+      return res
+        .status(400)
+        .json({ error: "Employee ID and Document ID are required." });
     }
 
-    const document = await EmployeeDocument.findOne({ doc_emp_id: empId, document_id: docId });
+    const document = await EmployeeDocument.findOne({
+      doc_emp_id: empId,
+      document_id: docId,
+    });
 
     if (!document) {
       return res.status(404).json({ error: "Document not found" });
@@ -333,7 +357,6 @@ app.get("/employees/:empId/documents/:docId", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 // Upload employee documents
 app.post(
@@ -366,7 +389,6 @@ app.post(
         responseMessage: "Document Added Successfully.",
         responseData: savedDocument,
       });
-    
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -380,7 +402,9 @@ app.delete("/employees/:employeeId/documents/:documentId", async (req, res) => {
     const documentId = req.params.documentId;
 
     if (!employeeId || !documentId) {
-      return res.status(400).json({ error: "Employee ID and Document ID are required." });
+      return res
+        .status(400)
+        .json({ error: "Employee ID and Document ID are required." });
     }
 
     const employee = await Employee.findById(employeeId);
@@ -397,7 +421,7 @@ app.delete("/employees/:employeeId/documents/:documentId", async (req, res) => {
       return res.status(404).json({ error: "Document not found" });
     }
 
-    const filePath = path.join(__dirname, 'uploads', deletedDocument.doc_image);
+    const filePath = path.join(__dirname, "uploads", deletedDocument.doc_image);
     fs.unlinkSync(filePath);
 
     res.json({ message: "Document deleted successfully" });
@@ -407,45 +431,69 @@ app.delete("/employees/:employeeId/documents/:documentId", async (req, res) => {
 });
 
 //update document
-app.put("/employees/:empId/documents/:docId", upload.single("doc_image"), async (req, res) => {
+app.put(
+  "/employees/:empId/documents/:docId",
+  upload.single("doc_image"),
+  async (req, res) => {
+    try {
+      const employeeId = req.params.empId;
+      const documentId = req.params.docId;
+      const { doc_name } = req.body;
+      const docImage = req.file ? req.file.filename : null;
+
+      if (!employeeId || !documentId || !doc_name) {
+        return res
+          .status(400)
+          .json({ error: "Employee ID, document ID, and name are required." });
+      }
+
+      const updateFields = {
+        doc_name: doc_name,
+      };
+
+      if (docImage) {
+        updateFields.doc_image = docImage;
+      }
+
+      const updatedDocument = await EmployeeDocument.findOneAndUpdate(
+        { doc_emp_id: employeeId, document_id: documentId },
+        updateFields,
+        { new: true }
+      );
+
+      if (!updatedDocument) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      res.json({
+        responseCode: 1,
+        responseMessage: "Document updated successfully",
+        responseData: updatedDocument,
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+//get department
+app.get("/departments", async (req, res) => {
   try {
-    const employeeId = req.params.empId;
-    const documentId = req.params.docId;
-    const { doc_name } = req.body;
-    const docImage = req.file ? req.file.filename : null;
-
-    if (!employeeId || !documentId || !doc_name) {
-      return res.status(400).json({ error: "Employee ID, document ID, and name are required." });
-    }
-
-    const updateFields = {
-      doc_name: doc_name,
-    };
-
-    if (docImage) {
-      updateFields.doc_image = docImage;
-    }
-
-    const updatedDocument = await EmployeeDocument.findOneAndUpdate(
-      { doc_emp_id: employeeId, document_id: documentId },
-     updateFields,
-      { new: true }
+    // Fetch all departments from the database
+    const departments = await Department.find(
+      {},
+      { dept_id: 1, dept_name: 1, _id: 0 }
     );
-
-    if (!updatedDocument) {
-      return res.status(404).json({ error: "Document not found" });
-    }
 
     res.json({
       responseCode: 1,
-      responseMessage: "Document updated successfully",
-      responseData: updatedDocument,
+      responseMessage: "Department List Fetched Successfully.",
+      responseData: departments,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
 // Add department
 app.post("/departments", async (req, res) => {
   try {
