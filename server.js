@@ -239,15 +239,15 @@ app.put("/employees/:id", async (req, res) => {
         .json({ error: "Invalid field length: emp_designation" });
     }
 
-    const existingEmployee = await Employee.findOne({
-      emp_first_name,
-      emp_last_name,
-      emp_dob,
-    });
+    // const existingEmployee = await Employee.findOne({
+    //   emp_first_name,
+    //   emp_last_name,
+    //   emp_dob,
+    // });
 
-    if (existingEmployee) {
-      return res.status(409).json({ error: "Employee already exists" });
-    }
+    // if (existingEmployee) {
+    //   return res.status(409).json({ error: "Employee already exists" });
+    // }
 
     const updatedEmployee = await Employee.findByIdAndUpdate(
       employeeId,
